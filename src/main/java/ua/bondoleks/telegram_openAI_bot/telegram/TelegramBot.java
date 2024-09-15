@@ -13,6 +13,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import ua.bondoleks.telegram_openAI_bot.openai.ChatGptService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,13 +23,15 @@ import java.util.ResourceBundle;
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
 
-    final BotConfig config;
+    private final BotConfig config;
+    private final ChatGptService chatGptService;
 
     @Value("${bot.webapp.link}")
     String webappLink;
 
-    public TelegramBot(BotConfig config){
+    public TelegramBot(BotConfig config, ChatGptService chatGptService){
         this.config = config;
+        this.chatGptService = chatGptService;
     }
 
     @Override
@@ -56,7 +59,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     defaultMenuWebApp(chatId);
                     break;
                 default:
-                    //TODO AI logic
+                    sendMessage(chatId, chatGptService.getResponseChatForUser(chatId, messageText));
             }
         }
     }
