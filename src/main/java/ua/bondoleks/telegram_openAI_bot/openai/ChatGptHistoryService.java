@@ -13,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @AllArgsConstructor
 public class ChatGptHistoryService {
 
+    //TODO connect DB(PostgresSQL)
+
     private final Map<Long, ChatHistory> chatHistoryMap = new ConcurrentHashMap<>();
 
 

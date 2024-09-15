@@ -3,7 +3,9 @@ package ua.bondoleks.telegram_openAI_bot.telegram;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.ActionType;
 import org.telegram.telegrambots.meta.api.methods.menubutton.SetChatMenuButton;
+import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -19,9 +21,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.logging.Logger;
 
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
+
+    private static final Logger LOGGER = Logger.getLogger(TelegramBot.class.getName());
 
     private final BotConfig config;
     private final ChatGptService chatGptService;
@@ -48,18 +53,26 @@ public class TelegramBot extends TelegramLongPollingBot {
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
-
             long chatId = update.getMessage().getChatId();
             String lang = update.getMessage().getFrom().getLanguageCode();
 
             switch (messageText) {
                 case "/start":
-                    // TODO registerUserOnTelegramBot(update);
                     sendMessage(chatId, helloLocalizationMessage(lang));
                     defaultMenuWebApp(chatId);
                     break;
                 default:
-                    sendMessage(chatId, chatGptService.getResponseChatForUser(chatId, messageText));
+                    sendChatAction(chatId);
+
+                    new Thread(() -> {
+                        try {
+                            String response = chatGptService.getResponseChatForUser(chatId, messageText);
+                            sendMessage(chatId, response);
+                        } catch (Exception e) {
+                            LOGGER.severe("Error in ChatGptService: " + e.getMessage());
+                            sendFallbackMessage(chatId);
+                        }
+                    }).start();
             }
         }
     }
@@ -95,7 +108,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException e) {
-            System.out.println((String.valueOf(e)));
+            LOGGER.severe("Error sending message: " + e.getMessage());
+            sendFallbackMessage(chatId);
         }
     }
 
@@ -113,7 +127,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         try {
             execute(setChatMenuButton);
         } catch (TelegramApiException e) {
-            System.out.println((String.valueOf(e)));
+            LOGGER.severe("Error setting menu web app: " + e.getMessage());
+            sendFallbackMessage(chatId);
         }
     }
 
@@ -155,5 +170,29 @@ public class TelegramBot extends TelegramLongPollingBot {
     private void defaultInlineWebApp(SendPhoto message) {
         InlineKeyboardMarkup inlineKeyboardMarkup = createDefaultInlineKeyboard();
         setInlineKeyboard(inlineKeyboardMarkup, message);
+    }
+
+    public void sendChatAction(long chatId) {
+        SendChatAction chatAction = new SendChatAction();
+        chatAction.setChatId(String.valueOf(chatId));
+        chatAction.setAction(ActionType.TYPING);
+
+        try {
+            execute(chatAction);
+        } catch (TelegramApiException e) {
+            LOGGER.severe("Error sending chat action: " + e.getMessage());
+            sendFallbackMessage(chatId);
+        }
+    }
+
+    private void sendFallbackMessage(long chatId) {
+        try {
+            SendMessage fallbackMessage = new SendMessage();
+            fallbackMessage.setChatId(String.valueOf(chatId));
+            fallbackMessage.setText("Something went wrong, please try again later.");
+            execute(fallbackMessage);
+        } catch (TelegramApiException e) {
+            LOGGER.severe("Error sending fallback message: " + e.getMessage());
+        }
     }
 }
