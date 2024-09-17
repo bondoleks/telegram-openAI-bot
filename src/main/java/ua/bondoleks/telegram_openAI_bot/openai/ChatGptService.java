@@ -14,6 +14,9 @@ public class ChatGptService {
     private final OpenAIClient openAIClient;
     private final ChatGptHistoryService chatGptHistoryService;
 
+    private static final String OPEN_AI_VERSION = "gpt-4o";
+    private static final String OPEN_AI_ROLE = "user";
+
     @Nonnull
     public String getResponseChatForUser(
             Long userId,
@@ -24,12 +27,12 @@ public class ChatGptService {
                 userId,
                 Message.builder()
                         .content(userTextInput)
-                        .role("user")
+                        .role(OPEN_AI_ROLE)
                         .build()
         );
 
         var request = ChatCompletionRequest.builder()
-                .model("gpt-4o")
+                .model(OPEN_AI_VERSION)
                 .messages(history.chatMessages())
                 .build();
         var response = openAIClient.createChatCompletion(request);
